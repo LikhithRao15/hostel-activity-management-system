@@ -27,43 +27,32 @@ router.get(
 
         try {
 
-            // Total registrations
+            // Fetch all registrations with student and activity details
+            const registrations = await Registration.find()
+                .populate("student", "name usn email")
+                .populate("activity", "activityName venue");
 
-            const totalRegistrations =
-                await Registration.countDocuments();
+            // Fetch all attendance records
+            const attendanceRecords = await Attendance.find();
+            const attendanceMap = {};
+            attendanceRecords.forEach(record => {
+                attendanceMap[record.registration.toString()] = record.status;
+            });
 
-            // Present count
+            // Combine registration and attendance
+            const detailedReport = registrations.map(reg => ({
+                id: reg._id,
+                name: reg.student?.name || "N/A",
+                usn: reg.student?.usn || "N/A",
+                date: reg.registeredAt,
+                facility: reg.activity?.activityName || "N/A",
+                status: attendanceMap[reg._id.toString()] || "Absent"
+            }));
 
-            const presentCount =
-                await Attendance.countDocuments({
-                    status: "Present"
-                });
-
-            // Absent count
-
-            const absentCount =
-                await Attendance.countDocuments({
-                    status: "Absent"
-                });
-
-            // Attendance details
-
-            const attendanceDetails =
-                await Attendance.find()
-                    .populate({
-                        path: "registration",
-                        populate: [
-                            {
-                                path: "student",
-                                select: "name email"
-                            },
-                            {
-                                path: "activity",
-                                select:
-                                    "activityName venue"
-                            }
-                        ]
-                    });
+            // Counts for summary
+            const totalRegistrations = detailedReport.length;
+            const presentCount = detailedReport.filter(r => r.status === "Present").length;
+            const absentCount = detailedReport.filter(r => r.status === "Absent").length;
 
             // Saloon data
             const saloonBookings = await SaloonBooking.find()
@@ -78,19 +67,12 @@ router.get(
             };
 
             res.json({
-
                 totalRegistrations,
-
                 presentCount,
-
                 absentCount,
-
-                attendanceDetails,
-
+                detailedReport, // This is what the user wants for the table/rows
                 saloonBookings,
-
                 saloonStats
-
             });
 
         } catch (error) {

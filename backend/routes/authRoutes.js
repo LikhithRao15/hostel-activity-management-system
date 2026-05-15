@@ -10,7 +10,12 @@ router.post("/register", async (req, res) => {
 
     try {
 
-        const { name, email, password, role, usn, hostelName, gender, phoneNumber } = req.body;
+        const { name, email, password, role, usn, hostelName, gender, phoneNumber, facility } = req.body;
+
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: "Email already registered" });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -22,7 +27,8 @@ router.post("/register", async (req, res) => {
             usn,
             hostelName,
             gender,
-            phoneNumber
+            phoneNumber,
+            facility
         });
 
         res.json(user);

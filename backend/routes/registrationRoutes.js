@@ -104,19 +104,19 @@ router.get(
     async (req, res) => {
 
         try {
+            const { facility } = req.query;
+            let query = {};
+            
+            if (facility && facility !== "Saloon") {
+                const activity = await Activity.findOne({ activityName: facility });
+                if (activity) {
+                    query.activity = activity._id;
+                }
+            }
 
-            const registrations =
-                await Registration.find()
-
-                .populate(
-                    "student",
-                    "name email"
-                )
-
-                .populate(
-                    "activity",
-                    "activityName venue"
-                );
+            const registrations = await Registration.find(query)
+                .populate("student", "name usn email")
+                .populate("activity", "activityName venue");
 
             res.json(registrations);
 

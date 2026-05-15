@@ -47,7 +47,6 @@ roleMiddleware("admin", "superadmin"),
 
 router.get(
     "/all",
-    authMiddleware,
     async (req, res) => {
 
         try {
@@ -67,6 +66,36 @@ router.get(
             res.status(500).json({
                 message: error.message
             });
+        }
+    }
+);
+
+// Update Activity
+router.put(
+    "/:id",
+    authMiddleware,
+    roleMiddleware("admin", "superadmin"),
+    async (req, res) => {
+        try {
+            const activity = await Activity.findByIdAndUpdate(req.params.id, req.body, { new: true });
+            res.json({ message: "Activity Updated", activity });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+);
+
+// Delete Activity
+router.delete(
+    "/:id",
+    authMiddleware,
+    roleMiddleware("admin", "superadmin"),
+    async (req, res) => {
+        try {
+            await Activity.findByIdAndDelete(req.params.id);
+            res.json({ message: "Activity Deleted" });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
         }
     }
 );

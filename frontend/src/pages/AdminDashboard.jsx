@@ -6,6 +6,10 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { Download, Users, CheckCircle, XCircle, Scissors, Plus, Trash2, Edit2, Calendar } from "lucide-react";
 
+import BASE_URL from "../config/api";
+import { getAuthToken } from "../utils/auth";
+import LoadingSpinner from "../components/LoadingSpinner";
+
 function AdminDashboard() {
   const [report, setReport] = useState(null);
   const [saloonServices, setSaloonServices] = useState([]);
@@ -16,12 +20,19 @@ function AdminDashboard() {
   const [serviceForm, setServiceForm] = useState({ name: "", duration: "", price: "", gender: "Male" });
   const [editingServiceId, setEditingServiceId] = useState(null);
 
+  // Facility Management State
+  const [facilities, setFacilities] = useState([]);
+  const [facilityForm, setFacilityForm] = useState({ activityName: "", venue: "", timing: "", capacity: "" });
+  const [editingFacilityId, setEditingFacilityId] = useState(null);
+
   const fetchReport = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:3000/api/report/daily", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const token = getAuthToken();
+if (!token) return;
+const response = await axios.get(`${BASE_URL}/api/report/daily`, {
+  headers: { Authorization: `Bearer ${token}` },
+});
+
       setReport(response.data);
     } catch (error) {
       console.error(error);
@@ -31,8 +42,9 @@ function AdminDashboard() {
 
   const fetchSaloonServices = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:3000/api/saloon/services", {
+      const token = getAuthToken();
+      if (!token) return;
+      const response = await axios.get(`${BASE_URL}/api/saloon/services`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSaloonServices(response.data);
@@ -42,11 +54,28 @@ function AdminDashboard() {
     }
   };
 
+  const fetchFacilities = async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+      const response = await axios.get(`${BASE_URL}/api/activity/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFacilities(response.data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load facilities");
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
-      await fetchReport();
-      await fetchSaloonServices();
+      await Promise.all([
+        fetchReport(),
+        fetchSaloonServices(),
+        fetchFacilities()
+      ]);
       setIsLoading(false);
     };
     init();
@@ -55,18 +84,19 @@ function AdminDashboard() {
   const handleServiceSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
-      if (editingServiceId) {
-        await axios.put(`http://localhost:3000/api/saloon/services/${editingServiceId}`, serviceForm, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        toast.success("Service updated");
-      } else {
-        await axios.post("http://localhost:3000/api/saloon/services", serviceForm, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        toast.success("Service added");
-      }
+      const token = getAuthToken();
+if (!token) return;
+if (editingServiceId) {
+  await axios.put(`${BASE_URL}/api/saloon/services/${editingServiceId}`, serviceForm, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  toast.success("Service updated");
+} else {
+  await axios.post(`${BASE_URL}/api/saloon/services`, serviceForm, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  toast.success("Service added");
+}
       setServiceForm({ name: "", duration: "", price: "", gender: "Male" });
       setEditingServiceId(null);
       fetchSaloonServices();
@@ -75,13 +105,53 @@ function AdminDashboard() {
     }
   };
 
+  const handleFacilitySubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+      if (editingFacilityId) {
+        await axios.put(`${BASE_URL}/api/activity/${editingFacilityId}`, facilityForm, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success("Facility updated");
+      } else {
+        await axios.post(`${BASE_URL}/api/activity/create`, facilityForm, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success("Facility added");
+      }
+      setFacilityForm({ activityName: "", venue: "", timing: "", capacity: "" });
+      setEditingFacilityId(null);
+      fetchFacilities();
+    } catch (error) {
+      toast.error("Operation failed");
+    }
+  };
+
+  const deleteFacility = async (id) => {
+    if (!window.confirm("Delete this facility?")) return;
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+      await axios.delete(`${BASE_URL}/api/activity/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("Facility deleted");
+      fetchFacilities();
+    } catch (error) {
+      toast.error("Delete failed");
+    }
+  };
+
   const deleteService = async (id) => {
     if (!window.confirm("Delete this service?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:3000/api/saloon/services/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const token = getAuthToken();
+if (!token) return;
+await axios.delete(`${BASE_URL}/api/saloon/services/${id}`, {
+  headers: { Authorization: `Bearer ${token}` },
+});
       toast.success("Service deleted");
       fetchSaloonServices();
     } catch (error) {
@@ -89,14 +159,15 @@ function AdminDashboard() {
     }
   };
 
-  const generatePDF = () => {
+  const generatePDF = (type = "daily") => {
     if (!report) return;
     
     const doc = new jsPDF();
+    const title = type === "daily" ? "Daily Facility & Saloon Report" : "Overall Facility & Saloon Report";
     
     doc.setFontSize(20);
     doc.setTextColor(40);
-    doc.text("Daily Facility & Saloon Report", 14, 22);
+    doc.text(title, 14, 22);
     
     doc.setFontSize(11);
     doc.setTextColor(100);
@@ -114,21 +185,22 @@ function AdminDashboard() {
     doc.setFontSize(10);
     doc.text(`Total Bookings: ${report.saloonStats?.total} | Completed: ${report.saloonStats?.completed} | Pending: ${report.saloonStats?.pending}`, 14, 72);
 
-    // Facility Table
-    const activityColumn = ["Student Name", "USN", "Facility", "Status"];
-    const activityRows = report.attendanceDetails.map(item => [
-      item.registration?.student?.name || "Unknown",
-      item.registration?.student?.usn || "N/A",
-      item.registration?.activity?.activityName || "Unknown",
+    // Facility Registration Table (New columns requested)
+    const columns = ["Name", "USN", "Date", "Facility", "Status"];
+    const rows = report.detailedReport.map(item => [
+      item.name,
+      item.usn,
+      new Date(item.date).toLocaleDateString(),
+      item.facility,
       item.status
     ]);
 
     doc.autoTable({
-      head: [activityColumn],
-      body: activityRows,
       startY: 80,
-      theme: 'grid',
-      headStyles: { fillColor: [66, 139, 202] },
+      head: [columns],
+      body: rows,
+      theme: "grid",
+      headStyles: { fillColor: [66, 139, 202] }
     });
 
     // Saloon Table
@@ -152,8 +224,8 @@ function AdminDashboard() {
         });
     }
 
-    doc.save(`daily_report_${new Date().toISOString().split('T')[0]}.pdf`);
-    toast.success("PDF Report downloaded!");
+    doc.save(`${type}_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} PDF Report downloaded!`);
   };
 
   if (isLoading) {
@@ -173,8 +245,8 @@ function AdminDashboard() {
   const COLORS = ['#10b981', '#ef4444'];
 
   const activityMap = {};
-  report.attendanceDetails.forEach(item => {
-    const actName = item.registration?.activity?.activityName || "Unknown";
+  report.detailedReport?.forEach(item => {
+    const actName = item.facility || "Unknown";
     activityMap[actName] = (activityMap[actName] || 0) + 1;
   });
   const barData = Object.keys(activityMap).map(key => ({
@@ -196,16 +268,26 @@ function AdminDashboard() {
         <div className="flex flex-wrap gap-2">
             <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                 <button onClick={() => setActiveTab("overview")} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'overview' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>Overview</button>
-                <button onClick={() => setActiveTab("saloon-services")} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'saloon-services' ? 'bg-white shadow text-pink-600' : 'text-gray-500'}`}>Services</button>
-                <button onClick={() => setActiveTab("saloon-bookings")} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'saloon-bookings' ? 'bg-white shadow text-pink-600' : 'text-gray-500'}`}>Bookings</button>
+                <button onClick={() => setActiveTab("facilities")} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'facilities' ? 'bg-white shadow text-green-600' : 'text-gray-500'}`}>Facilities</button>
+                <button onClick={() => setActiveTab("saloon-services")} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'saloon-services' ? 'bg-white shadow text-pink-600' : 'text-gray-500'}`}>Saloon Services</button>
+                <button onClick={() => setActiveTab("saloon-bookings")} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'saloon-bookings' ? 'bg-white shadow text-pink-600' : 'text-gray-500'}`}>Saloon Bookings</button>
             </div>
-            <button
-                onClick={generatePDF}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
-            >
-                <Download size={18} />
-                <span>PDF Report</span>
-            </button>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => generatePDF("daily")}
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                >
+                    <Download size={16} />
+                    <span>Daily</span>
+                </button>
+                <button
+                    onClick={() => generatePDF("overall")}
+                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                >
+                    <Download size={16} />
+                    <span>Overall</span>
+                </button>
+            </div>
         </div>
       </div>
 
@@ -315,21 +397,25 @@ function AdminDashboard() {
                     <thead className="bg-gray-50/50 dark:bg-gray-900/20">
                     <tr>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Student</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Facility</th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {report.attendanceDetails.map((item) => (
-                        <tr key={item._id} className="hover:bg-gray-50 transition-colors">
+                    {report.detailedReport?.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
                                 <div className="flex flex-col">
-                                    <span className="text-sm font-medium text-gray-900 dark:text-white">{item.registration?.student?.name}</span>
-                                    <span className="text-xs text-gray-500">{item.registration?.student?.usn}</span>
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">{item.name}</span>
+                                    <span className="text-xs text-gray-500">{item.usn}</span>
                                 </div>
                             </td>
                             <td className="px-6 py-4">
-                                <span className="text-sm text-gray-900 dark:text-white">{item.registration?.activity?.activityName}</span>
+                                <span className="text-sm text-gray-500">{new Date(item.date).toLocaleDateString()}</span>
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className="text-sm text-gray-900 dark:text-white">{item.facility}</span>
                             </td>
                             <td className="px-6 py-4">
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === 'Present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -343,6 +429,126 @@ function AdminDashboard() {
                 </div>
             </div>
         </>
+      )}
+
+      {activeTab === "facilities" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
+                        <Plus size={20} className="mr-2" />
+                        {editingFacilityId ? "Edit Facility" : "Add Facility"}
+                    </h2>
+                    <form onSubmit={handleFacilitySubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Facility Name</label>
+                            <select 
+                                required
+                                value={facilityForm.activityName}
+                                onChange={(e) => {
+                                    const name = e.target.value;
+                                    const venue = name === "Badminton" ? "Indoor Stadium Vidyagiri" : 
+                                                  name === "Gym" ? "AIET Gym" : 
+                                                  name === "Swimming" ? "Vidyagiri" : "";
+                                    setFacilityForm({...facilityForm, activityName: name, venue: venue});
+                                }}
+                                className="w-full px-4 py-2 rounded-lg border dark:bg-gray-700 outline-none"
+                            >
+                                <option value="">Select Facility</option>
+                                <option value="Badminton">Badminton</option>
+                                <option value="Gym">Gym</option>
+                                <option value="Swimming">Swimming</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Venue</label>
+                            <input 
+                                type="text" 
+                                readOnly
+                                value={facilityForm.venue}
+                                className="w-full px-4 py-2 rounded-lg border bg-gray-50 dark:bg-gray-800 text-gray-500 outline-none cursor-not-allowed"
+                                placeholder="Select facility first"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Timing</label>
+                                <select 
+                                    required
+                                    value={facilityForm.timing}
+                                    onChange={(e) => setFacilityForm({...facilityForm, timing: e.target.value})}
+                                    className="w-full px-4 py-2 rounded-lg border dark:bg-gray-700 outline-none"
+                                >
+                                    <option value="">Select Timing</option>
+                                    <option value="6:00 AM - 8:00 AM">6:00 AM - 8:00 AM</option>
+                                    <option value="8:00 AM - 10:00 AM">8:00 AM - 10:00 AM</option>
+                                    <option value="4:00 PM - 6:00 PM">4:00 PM - 6:00 PM</option>
+                                    <option value="6:00 PM - 8:00 PM">6:00 PM - 8:00 PM</option>
+                                    <option value="6:00 AM - 10:00 PM">All Day (6AM-10PM)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Capacity</label>
+                                <select 
+                                    required
+                                    value={facilityForm.capacity}
+                                    onChange={(e) => setFacilityForm({...facilityForm, capacity: e.target.value})}
+                                    className="w-full px-4 py-2 rounded-lg border dark:bg-gray-700 outline-none"
+                                >
+                                    <option value="">Select Capacity</option>
+                                    <option value="10">10</option>
+                                    <option value="20">20</option>
+                                    <option value="30">30</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors">
+                                {editingFacilityId ? "Update" : "Add"}
+                            </button>
+                            {editingFacilityId && (
+                                <button type="button" onClick={() => { setEditingFacilityId(null); setFacilityForm({ activityName: "", venue: "", timing: "", capacity: "" }); }} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg">Cancel</button>
+                            )}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div className="lg:col-span-2">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Facility</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Venue / Timing</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {facilities.map((f) => (
+                                <tr key={f._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{f.activityName}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {f.venue} <br /> <span className="text-xs">{f.timing}</span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{f.capacity}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onClick={() => { setEditingFacilityId(f._id); setFacilityForm({ activityName: f.activityName, venue: f.venue, timing: f.timing, capacity: f.capacity }); }} className="text-blue-600 hover:text-blue-900 mr-3">
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button onClick={() => deleteFacility(f._id)} className="text-red-600 hover:text-red-900">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
       )}
 
       {activeTab === "saloon-services" && (

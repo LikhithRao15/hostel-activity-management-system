@@ -2,26 +2,54 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { CheckCircle, XCircle, Users, Scissors, Clock } from "lucide-react";
+import BASE_URL from "../config/api";
+import { getAuthToken } from "../utils/auth";
 
 function AttenderDashboard() {
   const [registrations, setRegistrations] = useState([]);
   const [saloonBookings, setSaloonBookings] = useState([]);
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("activities"); // "activities" or "saloon"
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const [regRes, saloonRes] = await Promise.all([
-          axios.get("http://localhost:3000/api/registration/all", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`http://localhost:3000/api/saloon/bookings?date=${new Date().toISOString().split('T')[0]}`, {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // First fetch user profile to know their assigned facility
+      const profileRes = await axios.get(`${BASE_URL}/api/auth/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const userData = profileRes.data.user;
+      setUser(userData);
+
+      // Fetch filtered data based on user role/facility
+      const isSaloon = userData.facility === "Saloon";
+      
+      const requests = [
+          axios.get(`${BASE_URL}/api/registration/all?facility=${userData.facility || ""}`, {
             headers: { Authorization: `Bearer ${token}` },
           })
-      ]);
-      setRegistrations(regRes.data);
-      setSaloonBookings(saloonRes.data);
+      ];
+
+      if (isSaloon) {
+          requests.push(
+            axios.get(`${BASE_URL}/api/saloon/bookings?date=${new Date().toISOString().split('T')[0]}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+          );
+          setActiveTab("saloon");
+      } else {
+          setActiveTab("activities");
+      }
+
+      const results = await Promise.all(requests);
+      
+      setRegistrations(results[0].data);
+      if (isSaloon && results[1]) {
+          setSaloonBookings(results[1].data);
+      }
     } catch (error) {
       console.error(error);
       toast.error("Failed to load data");
@@ -32,9 +60,10 @@ function AttenderDashboard() {
 
   const markAttendance = async (registrationId, status) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
+      if (!token) return;
       const response = await axios.post(
-        "http://localhost:3000/api/attendance/mark",
+        `${BASE_URL}/api/attendance/mark`,
         { registrationId, status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -48,9 +77,10 @@ function AttenderDashboard() {
 
   const markSaloonStatus = async (bookingId, status) => {
       try {
-          const token = localStorage.getItem("token");
+          const token = getAuthToken();
+          if (!token) return;
           await axios.put(
-              `http://localhost:3000/api/saloon/attendance/${bookingId}`,
+              `${BASE_URL}/api/saloon/attendance/${bookingId}`,
               { status },
               { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -81,22 +111,26 @@ function AttenderDashboard() {
             Attender Dashboard
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Record attendance for facilities and saloon appointments
+            Managing: <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.facility || "General"}</span>
           </p>
         </div>
         <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-            <button 
-                onClick={() => setActiveTab("activities")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'activities' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-            >
-                Facilities
-            </button>
-            <button 
-                onClick={() => setActiveTab("saloon")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'saloon' ? 'bg-white shadow text-pink-600' : 'text-gray-500'}`}
-            >
-                Saloon
-            </button>
+            {user?.facility !== "Saloon" && (
+                <button 
+                    onClick={() => setActiveTab("activities")}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'activities' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+                >
+                    Facilities
+                </button>
+            )}
+            {user?.facility === "Saloon" && (
+                <button 
+                    onClick={() => setActiveTab("saloon")}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'saloon' ? 'bg-white shadow text-pink-600' : 'text-gray-500'}`}
+                >
+                    Saloon
+                </button>
+            )}
         </div>
       </div>
 

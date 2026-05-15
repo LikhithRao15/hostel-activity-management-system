@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { UserPlus } from "lucide-react";
+import BASE_URL from "../config/api";
 
 function Register() {
   const navigate = useNavigate();
@@ -15,8 +16,22 @@ function Register() {
     hostelName: "",
     gender: "Male",
     phoneNumber: "",
+    facility: "",
   });
+  const [facilities, setFacilities] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchFacilities = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/api/activity/all`);
+        setFacilities(response.data);
+      } catch (error) {
+        console.error("Failed to fetch facilities", error);
+      }
+    };
+    fetchFacilities();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -27,7 +42,7 @@ function Register() {
     setIsLoading(true);
 
     try {
-      await axios.post("http://localhost:3000/api/auth/register", formData);
+      await axios.post(`${BASE_URL}/api/auth/register`, formData);
       toast.success("Registration Successful! Please login.");
       navigate("/");
     } catch (error) {
@@ -118,6 +133,35 @@ function Register() {
               required
             />
           </div>
+
+          {formData.role === "attender" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Assigned Facility
+              </label>
+              <select
+                name="facility"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
+                onChange={handleChange}
+                value={formData.facility}
+                required
+              >
+                <option value="">Select Facility</option>
+                <option value="Saloon">Saloon</option>
+                <option value="Badminton">Badminton</option>
+                <option value="Gym">Gym</option>
+                <option value="Swimming">Swimming</option>
+                {facilities.map((f) => {
+                  if (["Saloon", "Badminton", "Gym", "Swimming"].includes(f.activityName)) return null;
+                  return (
+                    <option key={f._id} value={f.activityName}>
+                      {f.activityName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
 
           {formData.role === "student" && (
             <>
