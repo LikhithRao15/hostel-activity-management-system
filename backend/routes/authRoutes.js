@@ -10,7 +10,7 @@ router.post("/register", async (req, res) => {
 
     try {
 
-        const { name, email, password, role } = req.body;
+        const { name, email, password, role, usn, hostelName, gender, phoneNumber } = req.body;
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -18,7 +18,11 @@ router.post("/register", async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            role
+            role,
+            usn,
+            hostelName,
+            gender,
+            phoneNumber
         });
 
         res.json(user);
@@ -87,11 +91,15 @@ router.get(
     "/profile",
     authMiddleware,
     async (req, res) => {
-
-        res.json({
-            message: "Protected Profile Route",
-            user: req.user
-        });
+        try {
+            const user = await User.findById(req.user.id).select("-password");
+            res.json({
+                message: "Protected Profile Route",
+                user
+            });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
     }
 );
 

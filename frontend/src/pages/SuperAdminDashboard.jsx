@@ -30,11 +30,11 @@ function SuperAdminDashboard() {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success("Activity Created Successfully!");
+      toast.success("Facility Created Successfully!");
       setFormData({ activityName: "", venue: "", timing: "", capacity: "" });
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || "Failed to create activity");
+      toast.error(error.response?.data?.message || "Failed to create facility");
     } finally {
       setIsLoading(false);
     }
@@ -47,31 +47,57 @@ function SuperAdminDashboard() {
           Super Admin Dashboard
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Manage system configurations and create new activities
+          Manage system configurations and create new facilities
         </p>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center space-x-2">
-          <PlusCircle className="text-blue-600 dark:text-blue-400" size={20} />
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Create New Activity</h2>
+        <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col space-y-1">
+          <div className="flex items-center space-x-2">
+            <PlusCircle className="text-blue-600 dark:text-blue-400" size={20} />
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Create New Facility</h2>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Add a new facility to the hostel system</p>
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Activity Name
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Facility Name
               </label>
-              <input
-                type="text"
-                name="activityName"
-                value={formData.activityName}
-                onChange={handleChange}
-                placeholder="e.g., Annual Sports Meet"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                required
-              />
+              <div className="flex flex-col space-y-2">
+                <select
+                  name="activityName"
+                  value={["Gym", "Badminton", "Swimming"].includes(formData.activityName) ? formData.activityName : (formData.activityName === "" ? "" : "Other")}
+                  onChange={(e) => {
+                    if (e.target.value !== "Other") {
+                      setFormData({ ...formData, activityName: e.target.value });
+                    } else {
+                      setFormData({ ...formData, activityName: "Other" });
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  required
+                >
+                  <option value="">Select Facility</option>
+                  <option value="Gym">Gym</option>
+                  <option value="Badminton">Badminton</option>
+                  <option value="Swimming">Swimming</option>
+                  <option value="Other">Other</option>
+                </select>
+                
+                {(!["Gym", "Badminton", "Swimming"].includes(formData.activityName) && formData.activityName !== "") || formData.activityName === "Other" ? (
+                  <input
+                    type="text"
+                    placeholder="Enter custom facility name"
+                    value={formData.activityName === "Other" ? "" : formData.activityName}
+                    onChange={(e) => setFormData({ ...formData, activityName: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    required
+                  />
+                ) : null}
+              </div>
             </div>
 
             <div>
@@ -131,8 +157,8 @@ function SuperAdminDashboard() {
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <PlusCircle size={18} />
-                  <span>Create Activity</span>
+                  <Plus size={18} />
+                  <span>Create Facility</span>
                 </>
               )}
             </button>

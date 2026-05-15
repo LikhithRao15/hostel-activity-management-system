@@ -8,6 +8,9 @@ const Registration =
 const Attendance =
     require("../models/Attendance");
 
+const SaloonBooking =
+    require("../models/SaloonBooking");
+
 const authMiddleware =
     require("../middleware/authMiddleware");
 
@@ -62,6 +65,18 @@ router.get(
                         ]
                     });
 
+            // Saloon data
+            const saloonBookings = await SaloonBooking.find()
+                .populate("user", "name usn")
+                .populate("service");
+
+            const saloonStats = {
+                total: saloonBookings.length,
+                completed: saloonBookings.filter(b => b.status === "Completed").length,
+                pending: saloonBookings.filter(b => b.status === "Pending").length,
+                noShow: saloonBookings.filter(b => b.status === "No-Show").length
+            };
+
             res.json({
 
                 totalRegistrations,
@@ -70,7 +85,11 @@ router.get(
 
                 absentCount,
 
-                attendanceDetails
+                attendanceDetails,
+
+                saloonBookings,
+
+                saloonStats
 
             });
 

@@ -4,6 +4,13 @@ const userSchema = new mongoose.Schema({
     name: String,
     email: String,
     password: String,
+    usn: String,
+    hostelName: String,
+    gender: {
+        type: String,
+        enum: ["Male", "Female", "Other"]
+    },
+    phoneNumber: String,
 
     role: {
         type: String,

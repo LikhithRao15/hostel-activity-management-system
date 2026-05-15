@@ -9,6 +9,7 @@ const activityRoutes = require("./routes/activityRoutes");
 const registrationRoutes = require("./routes/registrationRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const saloonRoutes = require("./routes/saloonRoutes");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/api/registration",registrationRoutes);
 app.use("/api/attendance",attendanceRoutes);
 
 app.use("/api/report",reportRoutes);
+app.use("/api/saloon", saloonRoutes);
 
 app.get("/", (req, res) => {
     res.send("API Running");

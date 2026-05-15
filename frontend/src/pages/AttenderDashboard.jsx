@@ -1,22 +1,30 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Users, Scissors, Clock } from "lucide-react";
 
 function AttenderDashboard() {
   const [registrations, setRegistrations] = useState([]);
+  const [saloonBookings, setSaloonBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("activities"); // "activities" or "saloon"
 
-  const fetchRegistrations = async () => {
+  const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:3000/api/registration/all", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setRegistrations(response.data);
+      const [regRes, saloonRes] = await Promise.all([
+          axios.get("http://localhost:3000/api/registration/all", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get(`http://localhost:3000/api/saloon/bookings?date=${new Date().toISOString().split('T')[0]}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+      ]);
+      setRegistrations(regRes.data);
+      setSaloonBookings(saloonRes.data);
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load registrations");
+      toast.error("Failed to load data");
     } finally {
       setIsLoading(false);
     }
@@ -31,16 +39,30 @@ function AttenderDashboard() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success(response.data.message);
-      // We could optimistically remove it or refresh
-      fetchRegistrations();
+      fetchData();
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Failed to mark attendance");
     }
   };
 
+  const markSaloonStatus = async (bookingId, status) => {
+      try {
+          const token = localStorage.getItem("token");
+          await axios.put(
+              `http://localhost:3000/api/saloon/attendance/${bookingId}`,
+              { status },
+              { headers: { Authorization: `Bearer ${token}` } }
+          );
+          toast.success(`Booking marked as ${status}`);
+          fetchData();
+      } catch (error) {
+          toast.error("Failed to update status");
+      }
+  };
+
   useEffect(() => {
-    fetchRegistrations();
+    fetchData();
   }, []);
 
   if (isLoading) {
@@ -53,85 +75,119 @@ function AttenderDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Mark Attendance
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Record student attendance for activities
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Attender Dashboard
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Record attendance for facilities and saloon appointments
+          </p>
+        </div>
+        <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            <button 
+                onClick={() => setActiveTab("activities")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'activities' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+            >
+                Facilities
+            </button>
+            <button 
+                onClick={() => setActiveTab("saloon")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'saloon' ? 'bg-white shadow text-pink-600' : 'text-gray-500'}`}
+            >
+                Saloon
+            </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Student Name
-                </th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Activity
-                </th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Venue
-                </th>
-                <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {registrations.length === 0 ? (
+          {activeTab === "activities" ? (
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                    No pending registrations to mark attendance for.
-                  </td>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Student</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Facility</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Action</th>
                 </tr>
-              ) : (
-                registrations.map((reg) => (
-                  <tr key={reg._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {reg.student?.name || "Unknown Student"}
-                        </span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {reg.student?.email || "N/A"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                        {reg.activity?.activityName || "Unknown Activity"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {reg.activity?.venue || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => markAttendance(reg._id, "Present")}
-                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                          title="Mark Present"
-                        >
-                          <CheckCircle size={18} />
-                        </button>
-                        <button
-                          onClick={() => markAttendance(reg._id, "Absent")}
-                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                          title="Mark Absent"
-                        >
-                          <XCircle size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {registrations.length === 0 ? (
+                    <tr><td colSpan="3" className="px-6 py-8 text-center text-gray-500">No pending facility registrations</td></tr>
+                ) : (
+                    registrations.map((reg) => (
+                    <tr key={reg._id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">{reg.student?.name}</span>
+                                <span className="text-xs text-gray-500">{reg.student?.usn}</span>
+                            </div>
+                        </td>
+                        <td className="px-6 py-4">
+                            <span className="text-sm text-gray-900 dark:text-white">{reg.activity?.activityName}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end space-x-2">
+                            <button onClick={() => markAttendance(reg._id, "Present")} className="p-2 text-white bg-green-600 rounded-full hover:bg-green-700"><CheckCircle size={18} /></button>
+                            <button onClick={() => markAttendance(reg._id, "Absent")} className="p-2 text-white bg-red-600 rounded-full hover:bg-red-700"><XCircle size={18} /></button>
+                        </div>
+                        </td>
+                    </tr>
+                    ))
+                )}
+                </tbody>
+            </table>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900/50">
+                    <tr>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Service</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Time</th>
+                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {saloonBookings.length === 0 ? (
+                        <tr><td colSpan="4" className="px-6 py-8 text-center text-gray-500">No saloon bookings for today</td></tr>
+                    ) : (
+                        saloonBookings.map(booking => (
+                            <tr key={booking._id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{booking.user?.name}</span>
+                                        <span className="text-xs text-gray-500">{booking.user?.usn}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{booking.service?.name}</td>
+                                <td className="px-6 py-4 text-sm font-mono flex items-center">
+                                    <Clock size={14} className="mr-1 text-gray-400" />
+                                    {new Date(booking.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex justify-end space-x-2">
+                                        <button 
+                                            onClick={() => markSaloonStatus(booking._id, "Completed")} 
+                                            className={`p-2 rounded-full transition-colors ${booking.status === 'Completed' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-600'}`}
+                                            title="Mark Completed"
+                                        >
+                                            <CheckCircle size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => markSaloonStatus(booking._id, "No-Show")} 
+                                            className={`p-2 rounded-full transition-colors ${booking.status === 'No-Show' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-600'}`}
+                                            title="Mark No-Show"
+                                        >
+                                            <XCircle size={18} />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
