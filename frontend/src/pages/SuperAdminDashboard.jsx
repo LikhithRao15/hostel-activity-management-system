@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { PlusCircle } from "lucide-react";
+import BASE_URL from "../config/api";
 
 function SuperAdminDashboard() {
   const [formData, setFormData] = useState({
@@ -23,7 +24,7 @@ function SuperAdminDashboard() {
     try {
       const token = localStorage.getItem("token");
       await axios.post(
-        "http://localhost:3000/api/activity/create",
+        `${BASE_URL}/api/activity/create`,
         {
           ...formData,
           capacity: Number(formData.capacity)

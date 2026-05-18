@@ -3,7 +3,19 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
+const multer = require("multer");
+const path = require("path");
 
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+  }
+})
+const upload = multer({ storage: storage })
 const router = express.Router();
 
 router.post("/register", async (req, res) => {
@@ -103,6 +115,47 @@ router.get(
                 message: "Protected Profile Route",
                 user
             });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+);
+
+router.put(
+    "/update-profile",
+    authMiddleware,
+    upload.single("profilePicture"),
+    async (req, res) => {
+        try {
+            const updateData = {};
+            if (req.file) {
+                updateData.profilePicture = `/uploads/${req.file.filename}`;
+            }
+            const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true }).select("-password");
+            res.json({ message: "Profile updated successfully", user });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+);
+
+router.put(
+    "/change-password",
+    authMiddleware,
+    async (req, res) => {
+        try {
+            const { currentPassword, newPassword } = req.body;
+            const user = await User.findById(req.user.id);
+            
+            const isMatch = await bcrypt.compare(currentPassword, user.password);
+            if (!isMatch) {
+                return res.status(400).json({ message: "Invalid current password" });
+            }
+            
+            user.password = await bcrypt.hash(newPassword, 10);
+            await user.save();
+            
+            res.json({ message: "Password updated successfully" });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

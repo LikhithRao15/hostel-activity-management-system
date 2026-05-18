@@ -17,7 +17,11 @@ const userSchema = new mongoose.Schema({
         enum: ["student", "attender", "admin", "superadmin"],
         default: "student"
     },
-    facility: String // For attenders to specify their assigned facility
+    facility: String, // For attenders to specify their assigned facility
+    profilePicture: {
+        type: String,
+        default: ""
+    }
 });
 
 module.exports = mongoose.model("User", userSchema);
