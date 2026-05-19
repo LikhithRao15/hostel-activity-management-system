@@ -14,7 +14,14 @@ const saloonRoutes = require("./routes/saloonRoutes");
 const app = express();
 
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(',') : '*',
+  origin: (origin, callback) => {
+    // Automatically allow local development and Vercel subdomains
+    if (!origin || origin.startsWith("http://localhost") || origin.endsWith("vercel.app")) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());
