@@ -19,6 +19,7 @@ function Register() {
     gender: "Male",
     phoneNumber: "",
     facility: "",
+    accessKey: "",
   });
   const [facilities, setFacilities] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -98,7 +99,11 @@ function Register() {
   }, []);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (e.target.name === "role" && e.target.value === "student") {
+      setFormData({ ...formData, role: "student", accessKey: "" });
+    } else {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -126,8 +131,10 @@ function Register() {
   const requiredFields = formData.role === "student"
     ? ["name", "email", "password", "usn", "hostelName", "gender", "phoneNumber"]
     : formData.role === "attender"
-      ? ["name", "email", "password", "facility", "gender", "phoneNumber"]
-      : ["name", "email", "password", "gender", "phoneNumber"];
+      ? ["name", "email", "password", "facility", "gender", "phoneNumber", "accessKey"]
+      : formData.role === "admin"
+        ? ["name", "email", "password", "gender", "phoneNumber", "accessKey"]
+        : ["name", "email", "password", "gender", "phoneNumber"];
   const filledCount = requiredFields.filter(f => formData[f]).length;
   const progress = (filledCount / requiredFields.length) * 100;
 
@@ -193,6 +200,23 @@ function Register() {
                 </div>
               </div>
             </div>
+
+            {/* Security Access Key (Conditionally Rendered for Admin/Attender) */}
+            {(formData.role === "admin" || formData.role === "attender") && (
+              <div>
+                <label className={labelClasses} style={labelStyle}>Security Access Key</label>
+                <input
+                  type="password"
+                  name="accessKey"
+                  placeholder="Enter security access key"
+                  className={inputClasses}
+                  style={inputStyle}
+                  onChange={handleChange}
+                  value={formData.accessKey || ""}
+                  required
+                />
+              </div>
+            )}
 
             {/* Name */}
             <div>

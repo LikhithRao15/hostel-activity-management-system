@@ -22,7 +22,36 @@ router.post("/register", async (req, res) => {
 
     try {
 
-        const { name, email, password, role, usn, hostelName, gender, phoneNumber, facility } = req.body;
+        const { name, email, password, role, usn, hostelName, gender, phoneNumber, facility, accessKey } = req.body;
+
+        const targetRole = role || "student";
+
+        // Validate allowed roles
+        const allowedRoles = ["student", "attender", "admin", "superadmin"];
+        if (!allowedRoles.includes(targetRole)) {
+            return res.status(400).json({ message: "Invalid role specified" });
+        }
+
+        // Restrict Super Admin registration
+        if (targetRole === "superadmin") {
+            return res.status(403).json({ message: "Registration for Super Admin is restricted" });
+        }
+
+        // Validate access key for Admin role
+        if (targetRole === "admin") {
+            const adminKey = process.env.ADMIN_REGISTRATION_KEY || "admin123";
+            if (accessKey !== adminKey) {
+                return res.status(403).json({ message: "Invalid registration access key for Admin" });
+            }
+        }
+
+        // Validate access key for Attender role
+        if (targetRole === "attender") {
+            const attenderKey = process.env.ATTENDER_REGISTRATION_KEY || "attender123";
+            if (accessKey !== attenderKey) {
+                return res.status(403).json({ message: "Invalid registration access key for Attender" });
+            }
+        }
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
@@ -35,7 +64,7 @@ router.post("/register", async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            role,
+            role: targetRole,
             usn,
             hostelName,
             gender,
